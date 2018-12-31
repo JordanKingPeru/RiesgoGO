@@ -1,0 +1,109 @@
+---
+title: "Perfilamiento de contribuyentes importadores"
+author: "LCD - Team7"
+date: "12 de diciembre de 2018"
+output:
+  word_document:
+    reference_docx: word-styles2.docx
+---
+# Comprensión del negocio
+
+En este capítulo se exponen los motivos que justifican la elaboración del análisis, el problema en sí y se definen los atributos a ser considerados en la obtención de los resultados.
+
+## Base legal
+El presente reto se enmarca dentro de los siguientes puntos:
+
+* Ley1
+* Ley2
+* Ley3
+
+### Ley 1
+Artículo ...
+
+### Ley 2
+Artículo ...
+
+## Antecedentes
+El problema se inicia con la 
+
+## Situación actual
+El área de ...
+
+## Definición del problema
+En el mundo el valor de las mercancías importadas declarado en aduanas, constituye base de cálculo para la determinación de los tributos aduaneros, así como un componente importante 
+
+## Objetivos
+
+### Objetivo general
+Identificar a los contribuyentes...
+
+### Objetivos específicos
+Identificar a los contribuyentes...
+
+### Definición de la variable ovjetivo
+
+### Definición de atributos
+
+### Equipo Scrum
+El presente trabajo se desarrolló bajo la metodología SCRUM. Según la guía de ScrumTM, es un marco de trabajo por el cual las personas pueden abordar problemas complejos adaptativos, a la vez que entregar productos del máximo valor posible productivo y creativo. Bajo este marco, el equipo estuvo conformado por 01 product owner, 01 scrum master, 02 development team y 02 support team.
+
+# Comprensión de los datos
+En el presente capítulo se especifican los procedimientos que fueron necesarios para la obtención de la matriz de variables con la que se 
+
+## Extracción y recopilación de atributos
+
+listado de tablas que se usaron
+
+## Exploración de descripción de los datos
+
+En el presente trabajo se desarrolló, de forma intuitiva, el procedimiento de solución del reto a través técnicas de ciencia de datos.
+
+Para iniciar se procede con la carga de librerias que se utilizó en el proceso:
+```{r,message=FALSE,warning=FALSE}
+library(tidyverse)
+library(data.table)
+library(corrplot)
+library(tidyverse)
+library(factoextra)
+library(FactoMineR)
+library(ade4)
+```
+
+Para el perfilamiento de contribuyentes se tomo en cuenta los indicadores propuestos por la product owner, e indicadores calculados en retos anteriores (Subvaluación, Ruta del dinero). En total se logró obtener 22 variables cuantitativas y 10 variables cualitativas. 
+La información obtenida se almacenó en el archivo plano "Indicadores_ContExo", el cual se procede a cargar en la variable "bd" a continuación:
+
+```{r}
+names_categoricas <- list(character=c("ruc","ubigeo_150101","ubigeo_150115","ubigeo_230101","ubigeo_211101","ubigeo_150140","act_51313","act_52322","act_51906","act_51395","act_18100","condicion","dependencia","sin_registros","decla_trab"))
+
+bd <- fread('D:/Proyectos/04.Retos/14.RiesgoGOECI/R model/Gráficos/01bd/Indicadores_ContExo.csv',colClasses=names_categoricas,stringsAsFactors = TRUE)
+```
+
+El análisis se desarrolla en base a las variables cuantitativas, por tal motivo, se divide la tabla orginal en dos data.frame, una con variables cuantitativas y otra con variables cualitativas.
+
+```{r}
+vnumericas = data.frame(bd[,c(2:3,23:41,43,44)])[,-13]
+vcategoricas = data.frame(bd[,c(1,4:22,42)])
+```
+
+# Análisis previo
+Antes de iniciar un análisis exhaustivo de la data, procedemos a identificar las variables que se encuentran correlacionadas.
+```{r, fig.height=10, fig.width=15}
+corrplot(cor(vnumericas,use = "na.or.complete"), method = "circle") 
+```
+
+# Reducción de dimensiones
+```{r}
+acp<-FactoMineR::PCA(vnumericas, scale.unit = TRUE,  graph = FALSE, ncp = 11)
+eig.val <- factoextra::get_eigenvalue(acp)
+fviz_eig(acp, addlabels = TRUE, ylim = c(0, 20))
+```
+
+
+```{r}
+var <-factoextra::get_pca_var(acp)
+var
+
+head(var$contrib)
+factoextra::fviz_pca_var(acp, col.var = "black")
+```
+

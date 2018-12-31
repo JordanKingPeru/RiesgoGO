@@ -1,0 +1,231 @@
+---
+title: "Taller R-Studio Introducción"
+author:
+- "Laboratorio de Ciencia de Datos - Team7"
+date: "Jordan Rodriguez, Jennifer Arevalo"
+output:
+  prettydoc::html_pretty:
+    theme: cayman
+    highlight: github
+---
+El presente Taller consta de 3 partes:
+
+* Cargar archivos planos de texto
+* Configurar las variables de análisis
+* Realizar consultas
+
+R es un lenguaje de programación que trabaja a través de librerias creadas por diferentes usarios y que se encuentran almacenadas en el repositorio CRAN. Para poder hacer uso de las funciones creadas en cada libreria, es necesario instalarlo y llamarlo:
+
+Para el presente taller se van a utilizar las librerias:
+```{r,warning=FALSE,message=FALSE}
+library(data.table) #optimiza la carga de grandes volúmenes de datos
+library(tidyverse) #Colección de paquetes de R diseñados para la Ciencia de Datos.
+library(knitr)
+library(kableExtra)
+```
+
+# 1. Cargar archivos planos
+Los archivos planos son formatos básicos de almacenamiento como csv, txt, entre otros. Para los ejemplos, se vana a trabajar con archivos csv, la función que se utilizará es **fread** de la librería **data.table**
+
+```{r}
+bd_aduana <- fread("01bd/Indicadores_FOB.csv")
+```
+
+la función **head** permite visualizar los primeros 5 registros de la tabla cargada 
+```{r}
+head(bd_aduana)
+```
+
+Por un tema de visualización, se utiliza la función **kable** de las librerias **knitr** y **kableExtra**
+```{r}
+kable(head(bd_aduana)) %>%
+  kable_styling(bootstrap_options = "striped", font_size = 11)
+```
+
+La función **str** permite visualizar la estructura de la tabla: dimensiones, tipo de columnas, etc
+```{r}
+str(bd_aduana)
+```
+
+La función **names** permite obtener todos los nombres de cada columna
+```{r}
+names(bd_aduana)
+```
+
+Se pueden crear varibles y asignarles un valor utilizando los símbolos **<-**, creamos la variable nombre_columnas_transformar
+```{r}
+nombre_columnas_transformar <-c("a.libr_tribu","a.codi_aduan","a.ano_prese","a.nume_corre","a.codi_agent","a.pais_adqui")
+```
+
+# Carga y configuración de variables
+volvemos a cargar la misma tabla, pero con la configuración de las variables que son caracteres (string) y lse configura como un factor.
+```{r}
+bd_aduana <- fread("01bd/Indicadores_FOB.csv",
+            colClasses = list(character=nombre_columnas_transformar),
+            stringsAsFactors = TRUE)
+```
+
+Para verificar volvemos a llamar a la función **str**
+```{r}
+str(bd_aduana)
+```
+
+
+## 2. Transformación de los nombres de las columnas
+Para el proceso, se utiliza la función str_sub de la libreria **stringi** 
+```{r}
+library(stringi)
+nombre_variables <- names(bd_aduana)
+nombre_variables <- stri_sub(nombre_variables,from = 3,length = 50)
+names(bd_aduana) <- nombre_variables
+```
+
+# 3. Consultas y nueva variables
+Para este proceso se utilizará la librería **tidyverse**. Es importante comprender la importancia de las funciones anidadas, F(g(x)): a objeto **x** se aplica las transformaciones g y luego F. En R, es posible realizar este tipo de funciones utilizando **>%>**
+
+### Cantidad de registros de una tabla
+
+```{r}
+bd_aduana %>% summarise(n()) # aplicar un resumen de datos (summarise) a través de un conteo (n())
+dim(bd_aduana) #Dimensiones de un data.frame
+```
+
+
+
+### RUCs únicos
+
+```{r}
+bd_aduana %>% summarise(n_distinct(libr_tribu))
+```
+
+### Ruc únicos y registros, por año
+```{r}
+bd_aduana %>% group_by(ano_prese) %>% summarise(n_distinct(libr_tribu),n())
+```
+
+### Incluir el FOB a la consulta anterior
+```{r}
+bd_aduana %>% group_by(ano_prese) %>% summarise(n_distinct(libr_tribu),n(),sum(vfob_factu))
+```
+
+### Incluir una división entre la suma del fob respecto a la cantidad de registros (facturas)
+```{r}
+bd_aduana %>% 
+  group_by(ano_prese) %>% 
+  summarise(Contribuyentes=n_distinct(libr_tribu),facturas_aduanas = n(),total_FOB=sum(vfob_factu)) %>% 
+  mutate(ind1_FOBxFACTURA = total_FOB / facturas_aduanas)
+```
+
+### código de identificación de las DAM: libr_tribu,codi_aduan,ano_prese,nume_corre
+```{r}
+bd_aduana %>% 
+  group_by(libr_tribu,codi_aduan,ano_prese,nume_corre) %>% 
+  summarise(n()) %>% 
+  group_by() %>% 
+  summarise(n())
+```
+  
+### Cuántas importaciones se realizaron por año
+```{r}
+bd_aduana %>% 
+  group_by(libr_tribu,codi_aduan,ano_prese,nume_corre) %>% 
+  summarise(n(),total_FOB=sum(vfob_factu)) %>% 
+  group_by(ano_prese) %>% 
+  summarise(n=n(),total_FOB = sum(total_FOB)) %>% 
+  mutate(total_FOB/n)
+```
+
+### Filtrar sólo el año 2017
+```{r}
+bd_aduana %>% 
+  group_by(libr_tribu,codi_aduan,ano_prese,nume_corre) %>% 
+  summarise(n(),total_FOB=sum(vfob_factu)) %>% 
+  group_by(ano_prese) %>% 
+  summarise(n=n(),total_FOB = sum(total_FOB)) %>% 
+  mutate(total_FOB/n) %>% 
+  filter(ano_prese==17)
+```
+
+### Incluir el RUC
+```{r}
+bd_aduana %>% 
+  group_by(libr_tribu,codi_aduan,ano_prese,nume_corre) %>% 
+  filter(ano_prese==17) %>% 
+  summarise(n(),total_FOB=sum(vfob_factu)) %>% 
+  group_by(libr_tribu) %>% 
+  summarise(n=n(),total_FOB = sum(total_FOB)) %>% 
+  mutate(ind2_FOBxIMPORTACION=total_FOB/n)
+```
+
+### Guardar los indicadores en diferentes variables
+```{r}
+ruc_ind1 <- bd_aduana %>% 
+  group_by(libr_tribu,codi_aduan,ano_prese,nume_corre) %>% 
+  filter(ano_prese==17) %>% 
+  summarise(n_facturas=n(),total_FOB=sum(vfob_factu)) %>% 
+  group_by(libr_tribu) %>% 
+  summarise(n=n(),total_FOB = sum(total_FOB),facturas_aduanas=sum(n_facturas)) %>% 
+  mutate(ind1_FOBxFACTURA = total_FOB / facturas_aduanas,ind2_FOBxIMPORTACION=total_FOB/n)
+ruc_ind1
+```
+
+# 4. Carga de csv
+Indicadores de Operaciones No Reales (ONR)
+```{r}
+bd1_onr <- fread('01bd/onr.csv',select = c("ruc_imp","nat_jur"),
+             colClasses=list(character=c("ruc_imp")),stringsAsFactors = TRUE)
+```
+
+```{r}
+kable(head(bd1_onr)) %>%
+  kable_styling(bootstrap_options = "striped", font_size = 11)
+```
+
+Comprobantes de Pago Electrónicos (CPE)
+```{r}
+bd2_cpe_emisor <- fread('01bd/CPE_EMISOR.csv',
+                        colClasses=list(character=c("emisor_num_ruc")),
+                        stringsAsFactors = TRUE)
+bd2_cpe_receptor <- fread('01bd/CPE_RECEPTOR.csv',
+                          colClasses=list(character=c("receptor_num_ruc")),
+                          stringsAsFactors = TRUE)
+
+```
+
+
+```{r}
+kable(head(bd2_cpe_emisor)) %>%
+  kable_styling(bootstrap_options = "striped", font_size = 11)
+
+kable(head(bd2_cpe_receptor)) %>%
+  kable_styling(bootstrap_options = "striped", font_size = 11)
+```
+
+Anexos de contribuyentes
+```{r}
+bd3_anexos_contribuyentes <- fread('01bd/anexos_contribuyentes.csv',
+                                   colClasses=list(character=c("ruc_anexos")),
+                                   stringsAsFactors = TRUE)
+
+```
+
+```{r}
+kable(head(bd3_anexos_contribuyentes)) %>%
+  kable_styling(bootstrap_options = "striped", font_size = 11)
+```
+
+Subvaluador
+```{r}
+bd4_subvaluador <- fread('01bd/subvaluador_T7.csv',
+                         colClasses=list(character=c("ruc_team7")),
+                         stringsAsFactors = TRUE)
+
+```
+
+```{r}
+kable(head(bd4_subvaluador)) %>%
+  kable_styling(bootstrap_options = "striped", font_size = 11)
+```
+
+Incluir 
+
